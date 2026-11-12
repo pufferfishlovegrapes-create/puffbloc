@@ -29,7 +29,9 @@ RUN chmod 0755 /usr/local/bin/puffbloc-launch-sober \
 
 # Puffbloc: install Sober from Flathub on first boot, then launch it.
 # Set PUFFBLOC_AUTO_START=0 to open the desktop without auto-launching Sober.
-/usr/bin/env bash -lc 'if [ "${PUFFBLOC_AUTO_START:-1}" = "1" ]; then /usr/local/bin/puffbloc-launch-sober & fi'
+if [ "${PUFFBLOC_AUTO_START:-1}" = "1" ]; then
+    /usr/local/bin/puffbloc-launch-sober &
+fi
 AUTOSTART
 
 # Keep Flatpak's per-user installation and Sober's app data across restarts.
