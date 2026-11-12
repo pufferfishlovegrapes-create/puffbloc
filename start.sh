@@ -33,7 +33,7 @@ chown sober:sober /home/sober/.config/autostart/puffbloc-sober.desktop
 echo "Starting Puffbloc on port ${PORT}..."
 echo "Browser login user: ${WEB_USER}"
 
-exec su -s /bin/bash sober -c '
+exec su -p -s /bin/bash sober -c '
   exec dbus-run-session -- /usr/local/bin/selkies session \
     --session=xfce \
     --public \
