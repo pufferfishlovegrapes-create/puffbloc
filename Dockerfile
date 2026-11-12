@@ -1,56 +1,41 @@
-# Puffbloc: Sober streamed to a browser with Selkies.
-# This is an experimental image; GPU support still depends on the host.
-FROM ubuntu:24.04
+# Puffbloc: Sober (Roblox) launched automatically in a browser-streamed desktop.
+# Selkies provides the desktop, audio, GPU plumbing and browser streaming.
+# Sober itself is installed from the official Flathub remote on first startup.
+FROM ghcr.io/selkies-project/selkies/desktop:latest-ubuntu26.04
+
+USER 0
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG SELKIES_VERSION=2.1.0
 
-ENV HOME=/home/sober \
-    USER=sober \
-    PORT=8080
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl dbus dbus-x11 flatpak \
-    xfce4 xfce4-goodies \
-    libgbm1 libegl1 libgl1 libgles2 libvulkan1 \
-    libgl1-mesa-dri mesa-vulkan-drivers mesa-utils vulkan-tools \
-    procps \
+# Flatpak is required because Sober is officially distributed as a Flatpak.
+# bubblewrap and xdg-dbus-proxy are Flatpak's sandbox helpers.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       flatpak bubblewrap xdg-dbus-proxy dbus-x11 ca-certificates \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Flatpak's system installation helper needs a system D-Bus during the build.
-# The daemon is only needed for this build step; the entrypoint starts it again at runtime.
-RUN mkdir -p /run/dbus \
-    && dbus-uuidgen --ensure=/etc/machine-id \
-    && dbus-daemon --system --fork --nopidfile \
-    && flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo \
-    && flatpak install --system --noninteractive -y flathub org.vinegarhq.Sober
+COPY launch-sober.sh /usr/local/bin/puffbloc-launch-sober
+COPY puffbloc-sober.desktop /usr/share/applications/puffbloc-sober.desktop
 
-# Extract the official Selkies AppImage so the container does not need /dev/fuse.
-RUN curl -fL --retry 3 \
-      "https://github.com/selkies-project/selkies/releases/download/${SELKIES_VERSION}/selkies-${SELKIES_VERSION}-x86_64.AppImage" \
-      -o /tmp/selkies.AppImage \
-    && chmod 0755 /tmp/selkies.AppImage \
-    && mkdir -p /opt/selkies \
-    && cd /opt/selkies \
-    && /tmp/selkies.AppImage --appimage-extract \
-    && mv squashfs-root extracted \
-    && ln -s /opt/selkies/extracted/AppRun /usr/local/bin/selkies \
-    && rm -f /tmp/selkies.AppImage
+RUN chmod 0755 /usr/local/bin/puffbloc-launch-sober \
+    && mkdir -p /home/ubuntu/.local/share/flatpak \
+                /home/ubuntu/.var/app \
+                /home/ubuntu/.cache/puffbloc \
+    && chown -R 1000:1000 /home/ubuntu/.local/share/flatpak \
+                          /home/ubuntu/.var/app \
+                          /home/ubuntu/.cache/puffbloc \
+    && cat >> /etc/xdg/openbox/autostart <<'AUTOSTART'
 
-RUN useradd --create-home --shell /bin/bash sober \
-    && mkdir -p /home/sober/.config/autostart /home/sober/.var/app \
-    && chown -R sober:sober /home/sober
+# Puffbloc: install Sober from Flathub on first boot, then launch it.
+# Set PUFFBLOC_AUTO_START=0 to open the desktop without auto-launching Sober.
+/usr/bin/env bash -lc 'if [ "${PUFFBLOC_AUTO_START:-1}" = "1" ]; then /usr/local/bin/puffbloc-launch-sober & fi'
+AUTOSTART
 
-COPY start.sh /usr/local/bin/start-puffbloc
-COPY launch-sober.sh /usr/local/bin/launch-sober
-RUN chmod 0755 /usr/local/bin/start-puffbloc /usr/local/bin/launch-sober
-
-# Sober's Flatpak data and downloaded Roblox files survive container restarts.
-VOLUME ["/home/sober/.var/app"]
+# Keep Flatpak's per-user installation and Sober's app data across restarts.
+VOLUME ["/home/ubuntu/.local/share/flatpak", "/home/ubuntu/.var/app"]
 
 EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-    CMD-SHELL curl -fsS "http://127.0.0.1:${PORT}/" >/dev/null || exit 1
-
-ENTRYPOINT ["/usr/local/bin/start-puffbloc"]
+# Keep the upstream Selkies entrypoint and its s6 service supervision.
+USER 1000
