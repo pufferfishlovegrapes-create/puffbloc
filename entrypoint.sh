@@ -12,22 +12,20 @@ if [[ -z "${WEB_PASSWORD:-}" ]]; then
   exit 1
 fi
 
-# Classic VNC authentication uses only the first 8 password characters.
 printf '%s\n' "${WEB_PASSWORD:0:8}" | tigervncpasswd -f > "$HOME/.vnc/passwd"
 chmod 600 "$HOME/.vnc/passwd"
 
-echo "[Puffbloc] Starting headless TigerVNC display on $DISPLAY..."
-Xtigervnc "$DISPLAY" \
-  -geometry "$SCREEN_RESOLUTION" \
-  -depth 24 \
-  -rfbport 5901 \
-  -localhost \
-  -SecurityTypes VncAuth \
-  -rfbauth "$HOME/.vnc/passwd" \
-  -rendernode "$DRI_RENDER_NODE" \
-  -noreset \
-  -AlwaysShared \
-  >"$LOG_DIR/xvnc.log" 2>&1 &
+echo "[Puffbloc] Starting TigerVNC display on $DISPLAY..."
+XVNC_ARGS=("$DISPLAY" -geometry "$SCREEN_RESOLUTION" -depth 24 -rfbport 5901 -localhost -SecurityTypes VncAuth -rfbauth "$HOME/.vnc/passwd" -noreset -AlwaysShared)
+if [[ -n "${DRI_RENDER_NODE:-}" ]]; then
+  if [[ -e "$DRI_RENDER_NODE" ]]; then
+    XVNC_ARGS+=( -rendernode "$DRI_RENDER_NODE" )
+  else
+    echo "ERROR: DRI_RENDER_NODE '$DRI_RENDER_NODE' does not exist. Check GPU passthrough."
+    exit 1
+  fi
+fi
+Xtigervnc "${XVNC_ARGS[@]}" >"$LOG_DIR/xvnc.log" 2>&1 &
 XVNC_PID=$!
 
 cleanup() {
@@ -37,51 +35,39 @@ trap cleanup EXIT INT TERM
 
 echo "[Puffbloc] Waiting for the virtual display..."
 for _ in $(seq 1 60); do
-  if xdpyinfo -display "$DISPLAY" >/dev/null 2>&1; then
-    break
-  fi
+  if xdpyinfo -display "$DISPLAY" >/dev/null 2>&1; then break; fi
   if ! kill -0 "$XVNC_PID" 2>/dev/null; then
-    echo "ERROR: Xvnc exited. See $LOG_DIR/xvnc.log"
+    echo "ERROR: Xtigervnc exited. Its log follows:"
     cat "$LOG_DIR/xvnc.log"
     exit 1
   fi
   sleep 1
 done
 if ! xdpyinfo -display "$DISPLAY" >/dev/null 2>&1; then
-  echo "ERROR: Xvnc did not become ready. See $LOG_DIR/xvnc.log"
+  echo "ERROR: Xtigervnc did not become ready. Its log: $LOG_DIR/xvnc.log"
+  cat "$LOG_DIR/xvnc.log"
   exit 1
 fi
 
-echo "[Puffbloc] Starting minimal Openbox window manager..."
 openbox --sm-disable >"$LOG_DIR/openbox.log" 2>&1 &
 OPENBOX_PID=$!
-
-echo "[Puffbloc] Starting noVNC web gateway on port 8080..."
 websockify --web=/usr/share/novnc 8080 127.0.0.1:5901 >"$LOG_DIR/websockify.log" 2>&1 &
 WEBSOCKIFY_PID=$!
 
-echo "[Puffbloc] Checking GPU/display renderer..."
 glxinfo -B >"$LOG_DIR/graphics.log" 2>&1 || true
 
-echo "[Puffbloc] Preparing Sober from the official Flathub remote..."
+echo "[Puffbloc] Adding Flathub and installing Sober if needed..."
 if ! flatpak remotes --user --columns=name 2>/dev/null | grep -Fxq flathub; then
   flatpak remote-add --user --if-not-exists flathub "$FLATHUB_URL"
 fi
-
 if ! flatpak info --user "$APP_ID" >/dev/null 2>&1; then
-  echo "[Puffbloc] First startup: installing Sober. This may take several minutes..."
   flatpak install --user --noninteractive --assumeyes flathub "$APP_ID"
 fi
 
-echo "[Puffbloc] Launching Sober on the headless display..."
+echo "[Puffbloc] Launching Sober..."
 dbus-run-session -- flatpak run --user "$APP_ID" >"$LOG_DIR/sober.log" 2>&1 &
 SOBER_PID=$!
-
-echo
-echo "[Puffbloc] Ready. Open the forwarded port 8080 in your browser."
-echo "[Puffbloc] noVNC password: the first 8 characters of WEB_PASSWORD."
-echo "[Puffbloc] Sober and Roblox data are persisted in Docker volumes."
-echo
-
+echo "[Puffbloc] noVNC is starting on port 8080. Open the forwarded port in Codespaces."
+echo "[Puffbloc] VNC password: first 8 characters of WEB_PASSWORD."
 wait -n "$XVNC_PID" "$OPENBOX_PID" "$WEBSOCKIFY_PID" "$SOBER_PID"
-echo "[Puffbloc] A core process exited; stopping the container for restart."
+echo "[Puffbloc] A core process exited; container will restart."
