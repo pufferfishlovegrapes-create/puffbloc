@@ -74,7 +74,7 @@ docker exec puffbloc-cordial selkies gpu-probe
 ## Stop
 
 ```bash
-docker compose -f compose.cordial.yaml -f compose.cordial.gpu.yaml down
+docker compose -f compose.cordial.yaml down
 ```
 
 The data volume is preserved. To remove it too, add `-v`.
