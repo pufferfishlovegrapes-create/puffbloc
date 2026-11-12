@@ -40,7 +40,13 @@ Cordial supports launching a saved profile with:
 flatpak run --user io.github.luohoa97.Cordial --profile PROFILE_ID --play
 ```
 
-To use that mode in this container, set `CORDIAL_PROFILE` in `.env` to the profile ID after creating it. Optionally set `CORDIAL_PLACE_ID` to a specific experience's place ID. Leave `CORDIAL_PROFILE` empty to open the Cordial launcher.
+To find the profile ID after creating it, run:
+
+```bash
+docker exec puffbloc-cordial find /home/ubuntu/.var/app/io.github.luohoa97.Cordial/data/cordial/profiles -mindepth 1 -maxdepth 1 -type d -printf '%f\\n'
+```
+
+Set `CORDIAL_PROFILE` in `.env` to the ID shown. Optionally set `CORDIAL_PLACE_ID` to a specific experience's place ID. Leave `CORDIAL_PROFILE` empty to open the Cordial launcher. Restart the container after changing `.env`.
 
 ## Configuration
 
