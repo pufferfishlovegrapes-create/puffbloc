@@ -69,5 +69,10 @@ dbus-run-session -- flatpak run --user "$APP_ID" >"$LOG_DIR/sober.log" 2>&1 &
 SOBER_PID=$!
 echo "[Puffbloc] noVNC is starting on port 8080. Open the forwarded port in Codespaces."
 echo "[Puffbloc] VNC password: first 8 characters of WEB_PASSWORD."
-wait -n "$XVNC_PID" "$OPENBOX_PID" "$WEBSOCKIFY_PID" "$SOBER_PID"
-echo "[Puffbloc] A core process exited; container will restart."
+# Keep the web port alive even if Sober exits. Only stop the container if
+# the display, window manager, or noVNC web server itself stops.
+if wait -n "$XVNC_PID" "$OPENBOX_PID" "$WEBSOCKIFY_PID"; then
+  echo "[Puffbloc] A core display/web process exited; container will restart."
+else
+  echo "[Puffbloc] A core display/web process failed; container will restart."
+fi
