@@ -1,32 +1,33 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-: "${VNC_PASSWORD:?Set VNC_PASSWORD before starting this container}"
-if [ "${#VNC_PASSWORD}" -lt 8 ]; then
-  echo "VNC_PASSWORD must be at least 8 characters." >&2
+: "${WEB_PASSWORD:?Set WEB_PASSWORD to a strong password before starting Puffbloc}"
+if [ "${#WEB_PASSWORD}" -lt 12 ]; then
+  echo "WEB_PASSWORD must be at least 12 characters." >&2
   exit 1
 fi
 
-mkdir -p /home/sober/.vnc
-chown -R sober:sober /home/sober
-printf '%s\n' "$VNC_PASSWORD" | su -s /bin/bash sober -c 'vncpasswd -f > /home/sober/.vnc/passwd'
-chmod 600 /home/sober/.vnc/passwd
-chown sober:sober /home/sober/.vnc/passwd
+WEB_USER="${WEB_USER:-puffbloc}"
+PORT="${PORT:-8080}"
 
-cat > /home/sober/.vnc/xstartup <<'XSTARTUP'
+# Flatpak needs a system D-Bus. Selkies creates the user's session bus,
+# virtual display and audio server when its session starts.
+mkdir -p /run/dbus
+if [ ! -S /run/dbus/system_bus_socket ]; then
+  dbus-daemon --system --fork --nopidfile
+fi
+
+install -d -o sober -g sober /home/sober/.config/openbox
+cat > /home/sober/.config/openbox/autostart <<'AUTOSTART'
 #!/bin/sh
-unset SESSION_MANAGER
-unset DBUS_SESSION_BUS_ADDRESS
-exec dbus-run-session -- bash -lc '
-  openbox-session &
-  sleep 2
-  exec flatpak run --device=all --socket=x11 --share=ipc org.vinegarhq.Sober
-'
-XSTARTUP
-chmod 0755 /home/sober/.vnc/xstartup
-chown sober:sober /home/sober/.vnc/xstartup
+# Wait until Openbox and the virtual X display are ready, then launch Sober.
+(sleep 5; flatpak run org.vinegarhq.Sober >> /home/sober/sober.log 2>&1) &
+AUTOSTART
+chown sober:sober /home/sober/.config/openbox/autostart
+chmod 0755 /home/sober/.config/openbox/autostart
 
-su -s /bin/bash sober -c "tigervncserver :1 -localhost yes -geometry ${RESOLUTION} -depth 24 -SecurityTypes VncAuth -PasswordFile /home/sober/.vnc/passwd"
+echo "Starting Puffbloc browser session on port ${PORT}..."
+echo "Selkies login user: ${WEB_USER}"
 
-# noVNC serves the browser client and proxies WebSocket traffic to TigerVNC.
-exec websockify --web=/usr/share/novnc "${NOVNC_PORT}" 127.0.0.1:"${VNC_PORT}"
+exec su -s /bin/bash sober -c \
+  "exec dbus-run-session -- /usr/local/bin/selkies session --session=openbox-session --public --port=${PORT} --enable-https=false --basic-auth-user='${WEB_USER}' --basic-auth-password='${WEB_PASSWORD}'"
