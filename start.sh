@@ -9,6 +9,7 @@ fi
 
 WEB_USER="${WEB_USER:-puffbloc}"
 PORT="${PORT:-8080}"
+export WEB_USER WEB_PASSWORD PORT
 
 # Flatpak needs a system D-Bus. Selkies creates the user's session bus,
 # virtual display and audio server when its session starts.
@@ -29,5 +30,12 @@ chmod 0755 /home/sober/.config/openbox/autostart
 echo "Starting Puffbloc browser session on port ${PORT}..."
 echo "Selkies login user: ${WEB_USER}"
 
-exec su -s /bin/bash sober -c \
-  "exec dbus-run-session -- /usr/local/bin/selkies session --session=openbox-session --public --port=${PORT} --enable-https=false --basic-auth-user='${WEB_USER}' --basic-auth-password='${WEB_PASSWORD}'"
+exec su -p sober -s /bin/bash -c '
+  exec dbus-run-session -- /usr/local/bin/selkies session \
+    --session=openbox-session \
+    --public \
+    --port="$PORT" \
+    --enable-https=false \
+    --basic-auth-user="$WEB_USER" \
+    --basic-auth-password="$WEB_PASSWORD"
+'
