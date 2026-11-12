@@ -12,16 +12,15 @@ if ! docker compose version >/dev/null 2>&1; then
 fi
 
 if [ ! -f .env ]; then
-  generated_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
+  generated_password="$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')"
   cat > .env <<EOF
-WEB_USER=puffbloc
 WEB_PASSWORD=${generated_password}
 WEB_PORT=8080
-PUFFBLOC_AUTO_START=1
+SCREEN_RESOLUTION=1280x720
 EOF
-  echo "Created .env and generated a unique browser password:"
+  echo "Created .env and generated a noVNC password:"
   echo "${generated_password}"
-  echo "Save that password; it is also stored in .env."
+  echo "Save it. TigerVNC VNC authentication uses the first 8 characters."
   echo
 fi
 
@@ -35,6 +34,7 @@ docker compose up -d --build
 
 echo
 echo "Puffbloc has been started."
-echo "Open http://localhost:8080 (or the public HTTPS URL configured by your host)."
-echo "First startup installs Sober from Flathub; check logs if it takes a while:"
+echo "Open the forwarded port 8080 in your browser."
+echo "Enter the first 8 characters of WEB_PASSWORD when noVNC asks."
+echo "First startup installs Sober from Flathub; follow logs with:"
 echo "  docker compose logs -f puffbloc"
