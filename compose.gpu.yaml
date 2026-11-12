@@ -1,0 +1,9 @@
+# Optional Intel/AMD GPU passthrough for a Linux Docker host.
+# Start with:
+# RENDER_GID=$(stat -c '%g' /dev/dri/renderD128) docker compose -f compose.yaml -f compose.gpu.yaml up -d --build
+services:
+  puffbloc:
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "${RENDER_GID:?Set RENDER_GID to the host render-node group ID}"
