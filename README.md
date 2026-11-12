@@ -1,8 +1,18 @@
 # Puffbloc — Sober in your browser
 
-Puffbloc is an experimental, single-container setup intended to run **Sober** (the unofficial Linux Roblox client) and stream its Linux desktop to a web browser using **Selkies**.
+Puffbloc is an experimental single-container setup intended to run **Sober** (the unofficial Linux Roblox client) and stream its Linux desktop to a web browser using **Selkies**.
 
-It is not a Roblox web client. Roblox runs inside Sober in the Linux container; Selkies streams the screen and forwards keyboard/mouse/gamepad input to the browser.
+It is not a Roblox web client. Roblox runs inside Sober in the Linux container; Selkies streams the screen and forwards keyboard, mouse and gamepad input to the browser.
+
+## What happens when the container starts
+
+1. The entrypoint checks that a browser-login password is set.
+2. A system D-Bus service is started for Flatpak.
+3. Selkies starts an XFCE session with its own virtual display and audio server.
+4. XFCE autostart launches Sober.
+5. Selkies serves the desktop on port 8080. The host should provide HTTPS.
+
+On first launch, Sober may ask you to complete its initial setup inside the browser session. Allow time for the first startup and Roblox download.
 
 ## Deploy
 
@@ -15,15 +25,17 @@ Build the repository as a Docker image and deploy it with:
 
 The host's HTTPS reverse proxy should forward to container port 8080. This image serves HTTP internally because many container platforms terminate HTTPS at their proxy.
 
-After opening the public URL, sign in with the `WEB_USER` and `WEB_PASSWORD` values. Sober is configured to launch automatically. On first launch, complete Sober's Roblox setup inside the browser session.
+After opening the public URL, sign in with the `WEB_USER` and `WEB_PASSWORD` values.
 
-## GPU access
+## GPU requirements
 
-Sober needs compatible graphics support. The image includes Mesa and Vulkan userspace libraries, but these do not create a GPU.
+The image includes Mesa and Vulkan userspace packages, but these do not create or guarantee a GPU.
 
-For an Intel or AMD host, Docker normally needs the host's DRM device passed through (usually `/dev/dri`) and permission for the container user to access the render node. A provider that does not expose a GPU may fall back to software rendering, which can be very slow or fail.
+For Intel or AMD graphics, the host must expose a compatible DRM render device (usually `/dev/dri/renderD128`) to the container, and the container user must have permission to open it. A provider that hides GPU devices cannot provide hardware acceleration just because Mesa is installed.
 
-Sober's documented minimums include an x86-64 CPU, Linux kernel 5.11 or newer, and OpenGL ES 3.0-capable graphics. Vulkan 1.1 is recommended. The container uses the host kernel; it cannot upgrade it.
+For NVIDIA, the host needs NVIDIA Container Toolkit and a compatible driver/runtime configuration; this generic image does not configure NVIDIA passthrough automatically.
+
+Sober's documented requirements include an AMD64/x86-64 CPU with SSE4.1 and OpenGL ES 3.0-capable graphics. SSE4.2 and Vulkan 1.1 are recommended. The container uses the host kernel; it cannot upgrade it.
 
 ## Persistence
 
@@ -31,19 +43,9 @@ Mount a persistent volume at:
 
 `/home/sober/.var/app`
 
-This preserves Sober's app data and Roblox download between restarts.
+This preserves Sober's Flatpak app data and downloaded Roblox files between container restarts.
 
-## Important experimental limitations
-
-- **Not yet validated end-to-end.** A successful Docker build does not prove Flatpak sandboxing, Sober launch, GPU acceleration, audio, or browser input work on a particular host.
-- Sober is distributed officially as a Flatpak. Flatpak's sandbox depends on Linux namespace and container permissions; some managed hosting platforms restrict these. If Sober exits immediately, inspect `/home/sober/sober.log` and the container logs.
-- The initial image uses Selkies' AppImage and an Openbox session rather than the Selkies desktop container. This avoids relying on Flatpak inside the upstream Selkies desktop image, whose documentation says not to use Flatpak/Snap/systemd there.
-- NVIDIA passthrough needs matching host driver support and is not configured automatically by this generic image.
-- The container must run on AMD64/x86-64. Sober does not currently support ARM64.
-- Browser streaming adds CPU and memory overhead. The previously discussed 1–1.5 GB RAM target may be too tight; test before choosing a small host.
-- Do not expose this service publicly without a strong password and HTTPS at the hosting proxy.
-
-## Local build
+## Local build and run
 
 ```bash
 docker build -t puffbloc .
@@ -51,11 +53,36 @@ docker run --rm -p 8080:8080 \
   -e WEB_USER=puffbloc \
   -e WEB_PASSWORD='use-a-long-unique-password' \
   --device=/dev/dri \
-  --shm-size=1g \
+  --group-add "$(stat -c %g /dev/dri/renderD128)" \
+  --shm-size=2g \
+  -v puffbloc-data:/home/sober/.var/app \
   puffbloc
 ```
 
-If the host has no `/dev/dri`, omit `--device=/dev/dri`; that does not provide hardware acceleration.
+The `--device` and `--group-add` options above are for an Intel/AMD Linux host where `/dev/dri/renderD128` exists. If the host has no render device, remove both options; Sober may then fail or fall back to slow software rendering.
+
+Selkies recommends 2 GB of shared memory for its desktop browser workload. This is a shared-memory limit, not a promise that the game will fit within 1–1.5 GB of total RAM. Roblox and the streaming encoder both need memory and CPU. A small 1–1.5 GB host is not a reliable target; test on the actual provider before committing to it.
+
+## Health check and logs
+
+The Docker health check verifies that Selkies' HTTP endpoint responds. It does **not** prove that Sober launched or that GPU acceleration works.
+
+Useful checks inside the container:
+
+```bash
+cat /home/sober/sober.log
+ls -l /dev/dri
+```
+
+If the browser page loads but Sober does not, inspect the Sober log and container logs separately.
+
+## Experimental limitations
+
+- This has not yet been validated end-to-end. A successful Docker build does not prove Flatpak sandboxing, Sober launch, GPU acceleration, audio, gamepad input or browser control work on a particular host.
+- Some managed container hosts restrict Flatpak's sandbox requirements or do not expose GPU devices.
+- The image targets AMD64/x86-64. Sober does not currently support ARM64.
+- The Selkies AppImage version is pinned to 2.1.0 for reproducible builds; update it deliberately after checking upstream release notes.
+- Do not expose this service publicly without a strong password and HTTPS at the hosting proxy.
 
 ## Upstream projects
 
