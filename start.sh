@@ -11,28 +11,31 @@ WEB_USER="${WEB_USER:-puffbloc}"
 PORT="${PORT:-8080}"
 export WEB_USER WEB_PASSWORD PORT
 
-# Flatpak needs a system D-Bus. Selkies creates the user's session bus,
-# virtual display and audio server when its session starts.
+# Flatpak needs the system D-Bus; Selkies session creates the display
+# and audio session for XFCE.
 mkdir -p /run/dbus
 if [ ! -S /run/dbus/system_bus_socket ]; then
   dbus-daemon --system --fork --nopidfile
 fi
 
-install -d -o sober -g sober /home/sober/.config/openbox
-cat > /home/sober/.config/openbox/autostart <<'AUTOSTART'
-#!/bin/sh
-# Wait until Openbox and the virtual X display are ready, then launch Sober.
-(sleep 5; flatpak run org.vinegarhq.Sober >> /home/sober/sober.log 2>&1) &
-AUTOSTART
-chown sober:sober /home/sober/.config/openbox/autostart
-chmod 0755 /home/sober/.config/openbox/autostart
+install -d -o sober -g sober /home/sober/.config/autostart
+cat > /home/sober/.config/autostart/puffbloc-sober.desktop <<'DESKTOP'
+[Desktop Entry]
+Type=Application
+Name=Puffbloc Sober
+Comment=Launch Sober when the remote desktop starts
+Exec=/usr/local/bin/launch-sober
+Terminal=false
+X-GNOME-Autostart-enabled=true
+DESKTOP
+chown sober:sober /home/sober/.config/autostart/puffbloc-sober.desktop
 
-echo "Starting Puffbloc browser session on port ${PORT}..."
-echo "Selkies login user: ${WEB_USER}"
+echo "Starting Puffbloc on port ${PORT}..."
+echo "Browser login user: ${WEB_USER}"
 
-exec su -p sober -s /bin/bash -c '
+exec su -s /bin/bash sober -c '
   exec dbus-run-session -- /usr/local/bin/selkies session \
-    --session=openbox-session \
+    --session=xfce \
     --public \
     --port="$PORT" \
     --enable-https=false \
