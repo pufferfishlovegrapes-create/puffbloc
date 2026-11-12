@@ -1,36 +1,46 @@
+# Puffbloc: Sober + browser streaming via Selkies.
+# Selkies AppImage provides the browser client, virtual display, audio and input.
 FROM ubuntu:24.04
 
-ENV DEBIAN_FRONTEND=noninteractive
-ENV DISPLAY=:1
+ARG DEBIAN_FRONTEND=noninteractive
+ARG SELKIES_VERSION=2.2.1
+
 ENV HOME=/home/sober
-ENV RESOLUTION=1280x720
-ENV VNC_PORT=5901
-ENV NOVNC_PORT=6080
+ENV USER=sober
+ENV DISPLAY=:0
+ENV PORT=8080
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl dbus dbus-x11 flatpak \
-    openbox xterm \
-    tigervnc-standalone-server tigervnc-tools \
-    novnc websockify \
-    mesa-utils mesa-vulkan-drivers libgl1 libegl1 libgles2 libvulkan1 \
-    x11-xserver-utils procps \
+    openbox xterm xdg-utils \
+    libgbm1 libegl1 libgl1 libgles2 libvulkan1 \
+    libgl1-mesa-dri mesa-vulkan-drivers mesa-utils vulkan-tools \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Sober from its official Flathub package.
-RUN flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo \
-    && flatpak install --system -y flathub org.vinegarhq.Sober 
+# Install Sober from its official Flathub distribution.
+RUN flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo \
+    && flatpak install --system --noninteractive -y flathub org.vinegarhq.Sober
 
+# Selkies is pinned to a release. Extract the AppImage so FUSE is not needed.
+RUN curl -fL --retry 3 \
+      "https://github.com/selkies-project/selkies/releases/download/${SELKIES_VERSION}/selkies-${SELKIES_VERSION}-x86_64.AppImage" \
+      -o /tmp/selkies.AppImage \
+    && chmod 0755 /tmp/selkies.AppImage \
+    && cd /opt \
+    && /tmp/selkies.AppImage --appimage-extract \
+    && mv /opt/squashfs-root /opt/selkies \
+    && ln -s /opt/selkies/AppRun /usr/local/bin/selkies \
+    && rm -f /tmp/selkies.AppImage
 
 RUN useradd --create-home --shell /bin/bash sober \
-    && mkdir -p /home/sober/.vnc \
+    && mkdir -p /home/sober/.config/openbox /home/sober/.var/app \
     && chown -R sober:sober /home/sober
 
-COPY start.sh /usr/local/bin/start-sober
-RUN chmod 0755 /usr/local/bin/start-sober
+COPY start.sh /usr/local/bin/start-puffbloc
+RUN chmod 0755 /usr/local/bin/start-puffbloc
 
-EXPOSE 6080
+VOLUME ["/home/sober/.var/app"]
+EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
-    CMD curl -fsS http://127.0.0.1:6080/ >/dev/null || exit 1
-
-ENTRYPOINT ["/usr/local/bin/start-sober"]
+ENTRYPOINT ["/usr/local/bin/start-puffbloc"]
