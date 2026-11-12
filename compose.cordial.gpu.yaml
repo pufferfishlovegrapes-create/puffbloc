@@ -1,0 +1,9 @@
+# Optional override. Use only when the Docker host exposes /dev/dri.
+services:
+  puffbloc-cordial:
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "${RENDER_GID:-109}"
+    environment:
+      SELKIES_AUTO_GPU: "true"
