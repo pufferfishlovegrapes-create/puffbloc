@@ -16,8 +16,8 @@ fi
 printf '%s\n' "${WEB_PASSWORD:0:8}" | tigervncpasswd -f > "$HOME/.vnc/passwd"
 chmod 600 "$HOME/.vnc/passwd"
 
-echo "[Puffbloc] Starting headless Xvnc display on $DISPLAY..."
-Xvnc "$DISPLAY" \
+echo "[Puffbloc] Starting headless TigerVNC display on $DISPLAY..."
+Xtigervnc "$DISPLAY" \
   -geometry "$SCREEN_RESOLUTION" \
   -depth 24 \
   -rfbport 5901 \
