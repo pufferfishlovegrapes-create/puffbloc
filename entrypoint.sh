@@ -7,6 +7,8 @@ LOG_DIR="$HOME/.cache/puffbloc"
 mkdir -p "$LOG_DIR" "$HOME/.vnc" "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
 
+trap 'status=$?; echo "[Puffbloc] ERROR: command failed at line ${LINENO} (exit ${status}): ${BASH_COMMAND}" >&2' ERR
+
 if [[ -z "${WEB_PASSWORD:-}" ]]; then
   echo "ERROR: WEB_PASSWORD is required. Set it in .env."
   exit 1
@@ -49,6 +51,7 @@ if ! xdpyinfo -display "$DISPLAY" >/dev/null 2>&1; then
   exit 1
 fi
 
+# Openbox is optional; its exit must not take down the noVNC port.
 openbox --sm-disable >"$LOG_DIR/openbox.log" 2>&1 &
 OPENBOX_PID=$!
 websockify --web=/usr/share/novnc 8080 127.0.0.1:5901 >"$LOG_DIR/websockify.log" 2>&1 &
@@ -58,21 +61,30 @@ glxinfo -B >"$LOG_DIR/graphics.log" 2>&1 || true
 
 echo "[Puffbloc] Adding Flathub and installing Sober if needed..."
 if ! flatpak remotes --user --columns=name 2>/dev/null | grep -Fxq flathub; then
-  flatpak remote-add --user --if-not-exists flathub "$FLATHUB_URL"
-fi
-if ! flatpak info --user "$APP_ID" >/dev/null 2>&1; then
-  flatpak install --user --noninteractive --assumeyes flathub "$APP_ID"
+  if ! flatpak remote-add --user --if-not-exists flathub "$FLATHUB_URL"; then
+    echo "[Puffbloc] WARNING: Could not add Flathub. noVNC will stay online; check the error above."
+  fi
 fi
 
-echo "[Puffbloc] Launching Sober..."
-dbus-run-session -- flatpak run --user "$APP_ID" >"$LOG_DIR/sober.log" 2>&1 &
-SOBER_PID=$!
-echo "[Puffbloc] noVNC is starting on port 8080. Open the forwarded port in Codespaces."
-echo "[Puffbloc] VNC password: first 8 characters of WEB_PASSWORD."
-# Keep the web port alive even if Sober exits. Only stop the container if
-# the display, window manager, or noVNC web server itself stops.
-if wait -n "$XVNC_PID" "$OPENBOX_PID" "$WEBSOCKIFY_PID"; then
-  echo "[Puffbloc] A core display/web process exited; container will restart."
-else
-  echo "[Puffbloc] A core display/web process failed; container will restart."
+if ! flatpak info --user "$APP_ID" >/dev/null 2>&1; then
+  if ! flatpak install --user --noninteractive --assumeyes flathub "$APP_ID"; then
+    echo "[Puffbloc] WARNING: Sober installation failed. noVNC will stay online so the container can be diagnosed."
+  fi
 fi
+
+if flatpak info --user "$APP_ID" >/dev/null 2>&1; then
+  echo "[Puffbloc] Launching Sober..."
+  dbus-run-session -- flatpak run --user "$APP_ID" > >(tee -a "$LOG_DIR/sober.log") 2>&1 &
+  SOBER_PID=$!
+else
+  echo "[Puffbloc] Sober is not installed yet. noVNC is still available."
+fi
+
+echo "[Puffbloc] noVNC is listening on port 8080."
+echo "[Puffbloc] VNC password: first 8 characters of WEB_PASSWORD."
+echo "[Puffbloc] Sober log: $LOG_DIR/sober.log"
+
+# Only the display server and browser websocket server are essential.
+# A Sober or Openbox crash must not close the browser port.
+wait -n "$XVNC_PID" "$WEBSOCKIFY_PID"
+echo "[Puffbloc] The display or noVNC server exited; container will restart."
