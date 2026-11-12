@@ -1,0 +1,31 @@
+services:
+  puffbloc-cordial:
+    build:
+      context: .
+      dockerfile: Dockerfile.cordial
+      args:
+        SELKIES_VERSION: ${SELKIES_VERSION:-latest}
+        DISTRIB_FLAVOR: ubuntu26.04
+    image: puffbloc-cordial:latest
+    container_name: puffbloc-cordial
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    environment:
+      PASSWD: "${WEB_PASSWORD:?Set WEB_PASSWORD in .env}"
+      SELKIES_BASIC_AUTH_USER: "${WEB_USER:-ubuntu}"
+      SELKIES_BASIC_AUTH_PASSWORD: "${WEB_PASSWORD:?Set WEB_PASSWORD in .env}"
+      SELKIES_WAYLAND: "true"
+      SELKIES_WAYLAND_COMPOSITOR: "none"
+      START_LXQT: "false"
+      SELKIES_ENABLE_HTTPS: "false"
+      DISPLAY_SIZEW: "${SCREEN_WIDTH:-1280}"
+      DISPLAY_SIZEH: "${SCREEN_HEIGHT:-720}"
+      CORDIAL_PROFILE: "${CORDIAL_PROFILE:-}"
+      CORDIAL_PLACE_ID: "${CORDIAL_PLACE_ID:-}"
+    shm_size: "2gb"
+    restart: unless-stopped
+    volumes:
+      - cordial-data:/home/ubuntu/.var/app
+
+volumes:
+  cordial-data:
