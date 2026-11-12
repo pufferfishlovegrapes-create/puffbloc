@@ -10,7 +10,7 @@ services:
     environment:
       WEB_PASSWORD: "${WEB_PASSWORD:?Set WEB_PASSWORD in .env}"
       SCREEN_RESOLUTION: "${SCREEN_RESOLUTION:-1280x720}"
-      DRI_RENDER_NODE: "${DRI_RENDER_NODE:-auto}"
+      DRI_RENDER_NODE: "${DRI_RENDER_NODE:-}"
     shm_size: "1gb"
     restart: unless-stopped
     volumes:
