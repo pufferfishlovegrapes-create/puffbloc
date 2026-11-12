@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+ENV_FILE="${XDG_RUNTIME_DIR:-/tmp/runtime-ubuntu}/container-env"
+if [[ -f "$ENV_FILE" ]]; then
+  # Selkies writes the resolved display/audio environment for its services.
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+fi
+
+export HOME=/home/ubuntu
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/runtime-ubuntu}"
+WAYLAND_NAME="${WAYLAND_DISPLAY:-wayland-0}"
+if [[ "$WAYLAND_NAME" = /* ]]; then
+  WAYLAND_SOCKET="$WAYLAND_NAME"
+else
+  WAYLAND_SOCKET="$XDG_RUNTIME_DIR/$WAYLAND_NAME"
+fi
+
+echo "[Puffbloc] Waiting for the headless Wayland display..."
+for _ in $(seq 1 120); do
+  [[ -S "$WAYLAND_SOCKET" ]] && break
+  sleep 1
+done
+
+if [[ ! -S "$WAYLAND_SOCKET" ]]; then
+  echo "[Puffbloc] ERROR: Wayland socket did not appear: $WAYLAND_SOCKET" >&2
+  exit 1
+fi
+
+APP_ID="io.github.luohoa97.Cordial"
+APP_ARGS=()
+if [[ -n "${CORDIAL_PROFILE:-}" ]]; then
+  APP_ARGS+=(--profile "$CORDIAL_PROFILE" --play)
+  if [[ -n "${CORDIAL_PLACE_ID:-}" ]]; then
+    APP_ARGS+=(--place-id "$CORDIAL_PLACE_ID")
+  fi
+fi
+
+echo "[Puffbloc] Starting Cordial on Wayland..."
+if [[ ${#APP_ARGS[@]} -eq 0 ]]; then
+  echo "[Puffbloc] First run: create a profile, download Roblox, and sign in."
+else
+  echo "[Puffbloc] Starting Roblox with saved profile: $CORDIAL_PROFILE"
+fi
+
+exec dbus-run-session -- flatpak run --user "$APP_ID" "${APP_ARGS[@]}"
