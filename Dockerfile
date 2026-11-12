@@ -11,7 +11,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 # bubblewrap and xdg-dbus-proxy are Flatpak's sandbox helpers.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-       flatpak bubblewrap xdg-dbus-proxy dbus-x11 ca-certificates \
+       flatpak bubblewrap xdg-dbus-proxy dbus-x11 ca-certificates procps \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
