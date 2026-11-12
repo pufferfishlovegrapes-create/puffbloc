@@ -12,10 +12,17 @@ if ! docker compose version >/dev/null 2>&1; then
 fi
 
 if [ ! -f .env ]; then
-  cp .env.example .env
-  echo "Created .env from .env.example."
-  echo "Edit .env and set WEB_PASSWORD, then run: bash run.sh"
-  exit 0
+  generated_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
+  cat > .env <<EOF
+WEB_USER=puffbloc
+WEB_PASSWORD=${generated_password}
+WEB_PORT=8080
+PUFFBLOC_AUTO_START=1
+EOF
+  echo "Created .env and generated a unique browser password:"
+  echo "${generated_password}"
+  echo "Save that password; it is also stored in .env."
+  echo
 fi
 
 if grep -q '^WEB_PASSWORD=replace-with-a-long-unique-password$' .env; then
