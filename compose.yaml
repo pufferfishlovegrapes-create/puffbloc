@@ -1,0 +1,29 @@
+services:
+  puffbloc:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: puffbloc:latest
+    container_name: puffbloc
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    environment:
+      # Selkies browser login. Use a long unique password in .env.
+      PASSWD: "${WEB_PASSWORD:?Set WEB_PASSWORD in .env}"
+      SELKIES_BASIC_AUTH_USER: "${WEB_USER:-puffbloc}"
+      SELKIES_BASIC_AUTH_PASSWORD: "${WEB_PASSWORD:?Set WEB_PASSWORD in .env}"
+      SELKIES_ENABLE_BASIC_AUTH: "true"
+      # The public host/proxy should provide HTTPS.
+      SELKIES_ENABLE_HTTPS: "false"
+      SELKIES_MODE: "websockets"
+      SELKIES_DESKTOP: "true"
+      PUFFBLOC_AUTO_START: "${PUFFBLOC_AUTO_START:-1}"
+    shm_size: "2gb"
+    restart: unless-stopped
+    volumes:
+      - puffbloc-flatpak:/home/ubuntu/.local/share/flatpak
+      - puffbloc-data:/home/ubuntu/.var/app
+
+volumes:
+  puffbloc-flatpak:
+  puffbloc-data:
