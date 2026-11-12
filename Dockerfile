@@ -17,8 +17,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     procps \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Sober from Flathub.
-RUN flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo \
+# Flatpak's system installation helper needs a system D-Bus during the build.
+# The daemon is only needed for this build step; the entrypoint starts it again at runtime.
+RUN mkdir -p /run/dbus \
+    && dbus-uuidgen --ensure=/etc/machine-id \
+    && dbus-daemon --system --fork --nopidfile \
+    && flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo \
     && flatpak install --system --noninteractive -y flathub org.vinegarhq.Sober
 
 # Extract the official Selkies AppImage so the container does not need /dev/fuse.
