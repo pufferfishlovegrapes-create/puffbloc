@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Roblox (Sober)
-Comment=Launch Roblox through Sober
-Exec=/usr/local/bin/puffbloc-launch-sober
-Icon=applications-games
-Terminal=false
-Categories=Game;
-StartupNotify=true
