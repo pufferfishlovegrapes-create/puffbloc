@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Sober from its official Flathub package.
 RUN flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo \
-    && flatpak install --system -y flathub org.vinegarhq.Sober \
+    && flatpak install --system -y flathub org.vinegarhq.Sober 
 
 
 RUN useradd --create-home --shell /bin/bash sober \
