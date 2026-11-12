@@ -36,4 +36,4 @@ if ! flatpak info --user "$APP_ID" >/dev/null 2>&1; then
 fi
 
 echo "Starting Sober..."
-exec flatpak run --user --device=all "$APP_ID"
+exec flatpak run --user "$APP_ID"
