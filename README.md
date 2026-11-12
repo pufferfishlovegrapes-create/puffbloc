@@ -27,7 +27,7 @@ You need a Docker host with Docker Compose v2.
    docker compose up -d --build
    ```
 
-   Or run `bash start.sh` to create the example `.env` if needed, validate the Compose configuration, and start the container.
+   Or run `bash run.sh` to create the example `.env` if needed, validate the Compose configuration, and start the container.
 
 5. Open **http://localhost:8080** (or the host's public URL) and sign in with the username and password from `.env`.
 
