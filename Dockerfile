@@ -1,43 +1,37 @@
-# Puffbloc: Sober (Roblox) launched automatically in a browser-streamed desktop.
-# Selkies provides the desktop, audio, GPU plumbing and browser streaming.
-# Sober itself is installed from the official Flathub remote on first startup.
-FROM ghcr.io/selkies-project/selkies/desktop:latest-ubuntu26.04
+# Puffbloc: headless Ubuntu + Sober + GPU-capable TigerVNC + noVNC.
+# Ubuntu 26.04 provides TigerVNC 1.15, whose Xvnc supports DRI3 render nodes.
+FROM ubuntu:26.04
 
-USER 0
+ENV DEBIAN_FRONTEND=noninteractive \
+    DISPLAY=:1 \
+    HOME=/home/ubuntu \
+    XDG_RUNTIME_DIR=/tmp/runtime-ubuntu \
+    SCREEN_RESOLUTION=1280x720 \
+    DRI_RENDER_NODE=auto
 
-ARG DEBIAN_FRONTEND=noninteractive
-
-# Flatpak is required because Sober is officially distributed as a Flatpak.
-# bubblewrap and xdg-dbus-proxy are Flatpak's sandbox helpers.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-       flatpak bubblewrap xdg-dbus-proxy dbus-x11 ca-certificates procps \
+       ca-certificates curl flatpak bubblewrap xdg-dbus-proxy dbus \
+       openbox tigervnc-standalone-server tigervnc-tools \
+       novnc websockify x11-utils procps mesa-utils \
+       fonts-dejavu-core \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY launch-sober.sh /usr/local/bin/puffbloc-launch-sober
-COPY puffbloc-sober.desktop /usr/share/applications/puffbloc-sober.desktop
-
-RUN chmod 0755 /usr/local/bin/puffbloc-launch-sober \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 1000 --shell /bin/bash ubuntu \
     && mkdir -p /home/ubuntu/.local/share/flatpak \
                 /home/ubuntu/.var/app \
                 /home/ubuntu/.cache/puffbloc \
-    && chown -R 1000:1000 /home/ubuntu/.local/share/flatpak \
-                          /home/ubuntu/.var/app \
-                          /home/ubuntu/.cache/puffbloc \
-    && cat >> /etc/xdg/openbox/autostart <<'AUTOSTART'
+                /home/ubuntu/.vnc \
+    && chown -R ubuntu:ubuntu /home/ubuntu
 
-# Puffbloc: install Sober from Flathub on first boot, then launch it.
-# Set PUFFBLOC_AUTO_START=0 to open the desktop without auto-launching Sober.
-if [ "${PUFFBLOC_AUTO_START:-1}" = "1" ]; then
-    /usr/local/bin/puffbloc-launch-sober &
-fi
-AUTOSTART
+COPY entrypoint.sh /usr/local/bin/puffbloc-entrypoint
+RUN chmod 0755 /usr/local/bin/puffbloc-entrypoint
 
-# Keep Flatpak's per-user installation and Sober's app data across restarts.
+# Persist the per-user Flatpak installation and Sober/Roblox data.
 VOLUME ["/home/ubuntu/.local/share/flatpak", "/home/ubuntu/.var/app"]
 
 EXPOSE 8080
 
-# Keep the upstream Selkies entrypoint and its s6 service supervision.
-USER 1000
+USER ubuntu
+WORKDIR /home/ubuntu
+ENTRYPOINT ["/usr/local/bin/puffbloc-entrypoint"]
