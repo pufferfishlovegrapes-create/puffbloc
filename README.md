@@ -1,3 +1,5 @@
+> **Experimental Cordial version:** see [README-CORDIAL.md](README-CORDIAL.md) for the separate headless Wayland + Selkies browser-streaming setup. It does not replace the existing Sober setup.
+
 # Puffbloc — headless Sober in your browser
 
 Puffbloc runs **Sober** (the unofficial Linux Roblox client) in a minimal, headless Ubuntu container.
