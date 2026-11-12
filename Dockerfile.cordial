@@ -1,0 +1,39 @@
+# Experimental Puffbloc build: Cordial on Selkies' headless Wayland session.
+# Use the published Selkies release image, not its moving main branch.
+ARG SELKIES_VERSION=latest
+ARG DISTRIB_FLAVOR=ubuntu26.04
+FROM ghcr.io/selkies-project/selkies/base:${SELKIES_VERSION}-${DISTRIB_FLAVOR}
+
+# Selkies Base is rootless. Follow its documented package-install bracket.
+USER 0
+SHELL ["/bin/sh", "-c"]
+RUN selkies-privileged-files release
+
+USER 1000
+SHELL ["/usr/bin/fakeroot", "--", "/bin/sh", "-c"]
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y flatpak dbus-daemon ca-certificates \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && flatpak remote-add --user --if-not-exists cordial https://luohoa97.github.io/cordial/cordial.flatpakrepo \
+    && flatpak install --user --noninteractive --assumeyes cordial io.github.luohoa97.Cordial
+
+USER 0
+SHELL ["/bin/sh", "-c"]
+RUN selkies-privileged-files restore
+
+USER 1000
+COPY --chown=1000:1000 services/cordial/run /etc/service/cordial/run
+RUN chmod 0755 /etc/service/cordial/run
+
+ENV HOME=/home/ubuntu \
+    START_LXQT=false \
+    SELKIES_WAYLAND=true \
+    SELKIES_WAYLAND_COMPOSITOR=none \
+    SELKIES_ENABLE_HTTPS=false \
+    DISPLAY_SIZEW=1280 \
+    DISPLAY_SIZEH=720
+
+EXPOSE 8080
+WORKDIR /home/ubuntu
+ENTRYPOINT ["/etc/container-entrypoint.sh"]
