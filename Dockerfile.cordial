@@ -15,7 +15,9 @@ RUN apt-get update \
     && apt-get install --no-install-recommends -y flatpak dbus-daemon ca-certificates \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
+    && flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo \
     && flatpak remote-add --user --if-not-exists cordial https://luohoa97.github.io/cordial/cordial.flatpakrepo \
+    && flatpak install --user --noninteractive --assumeyes flathub org.gnome.Platform//50 \
     && flatpak install --user --noninteractive --assumeyes cordial io.github.luohoa97.Cordial
 
 USER 0
