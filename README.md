@@ -9,27 +9,21 @@ Puffbloc starts **Sober** (the unofficial Linux Roblox client) inside an officia
 
 This is not a Roblox web client. Roblox runs inside Sober in the Linux container and Selkies streams the desktop to your browser.
 
-## Quick start — Docker Compose
+## Quick start — one command
 
 You need a Docker host with Docker Compose v2.
 
 1. Copy this repository to your Docker host.
-2. Copy the example environment file:
+2. Run:
 
    ```bash
-   cp .env.example .env
+   bash run.sh
    ```
 
-3. Edit `.env` and replace the example password with a long, unique password.
-4. Start Puffbloc:
+3. On the first run, the helper creates `.env`, generates a unique browser password, prints it once, and starts the container. **Save that password**; it is also stored in `.env`.
+4. Open **http://localhost:8080** (or the host's public URL) and sign in as `puffbloc` with the generated password.
 
-   ```bash
-   docker compose up -d --build
-   ```
-
-   Or run `bash run.sh` to create the example `.env` if needed, validate the Compose configuration, and start the container.
-
-5. Open **http://localhost:8080** (or the host's public URL) and sign in with the username and password from `.env`.
+To customize the username, password, or port instead, copy `.env.example` to `.env`, edit it, and then run `bash run.sh`. You can also start directly with `docker compose up -d --build` after creating `.env`.
 
 On first startup, Puffbloc downloads and installs Sober from Flathub. This can take several minutes. The Sober window should open automatically after installation. Sober may then show its own first-run Roblox setup; choose its automatic installation option.
 
